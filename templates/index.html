@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-Powered Phishing Email Detector</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --bg-soft: #ffffff;
+            --card: rgba(255, 255, 255, 0.92);
+            --text: #122234;
+            --muted: #5d7082;
+            --primary-start: #0ea5a6;
+            --primary-end: #2563eb;
+            --secondary-bg: rgba(255, 255, 255, 0.66);
+            --secondary-hover: rgba(255, 255, 255, 0.82);
+            --danger: #b42318;
+            --safe: #157347;
+            --border: rgba(145, 163, 184, 0.35);
+            --ring: rgba(37, 99, 235, 0.22);
+            --result-bg: rgba(255, 255, 255, 0.75);
+            --pattern-dot: rgba(255, 255, 255, 0.26);
+            --card-shadow: 0 20px 44px rgba(3, 10, 22, 0.12);
+            --page-glow-1: rgba(14, 165, 166, 0.12);
+            --page-glow-2: rgba(37, 99, 235, 0.1);
+            --page-glow-3: rgba(91, 33, 182, 0.08);
+        }
+
+        body.dark {
+            --bg: #050a14;
+            --bg-soft: #0a1222;
+            --card: rgba(13, 21, 38, 0.78);
+            --text: #e6edf7;
+            --muted: #9bb0c9;
+            --secondary-bg: rgba(45, 60, 84, 0.55);
+            --secondary-hover: rgba(58, 77, 106, 0.68);
+            --border: rgba(120, 145, 180, 0.32);
+            --ring: rgba(14, 165, 166, 0.35);
+            --result-bg: rgba(11, 20, 37, 0.62);
+            --pattern-dot: rgba(255, 255, 255, 0.1);
+            --card-shadow: 0 22px 52px rgba(2, 7, 19, 0.52);
+            --page-glow-1: rgba(32, 194, 196, 0.38);
+            --page-glow-2: rgba(59, 130, 246, 0.34);
+            --page-glow-3: rgba(91, 33, 182, 0.28);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body,
+        textarea {
+            scrollbar-width: thin;
+            scrollbar-color: #9db0c7 transparent;
+        }
+
+        body.dark,
+        body.dark textarea {
+            scrollbar-color: #5c7392 transparent;
+        }
+
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+            background: linear-gradient(180deg, rgba(14, 165, 166, 0.85), rgba(37, 99, 235, 0.85));
+            transition: background 0.2s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, rgba(14, 165, 166, 1), rgba(37, 99, 235, 1));
+        }
+
+        body.dark ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.78), rgba(99, 102, 241, 0.78));
+        }
+
+        body.dark ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.95), rgba(99, 102, 241, 0.95));
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(900px 520px at -8% -14%, var(--page-glow-1) 0%, transparent 46%),
+                radial-gradient(800px 420px at 110% -6%, var(--page-glow-2) 0%, transparent 52%),
+                radial-gradient(500px 320px at 50% 116%, var(--page-glow-3) 0%, transparent 58%),
+                linear-gradient(135deg, var(--bg) 0%, var(--bg-soft) 100%);
+            display: grid;
+            place-items: center;
+            padding: 30px 16px;
+            transition: color 0.25s ease, background 0.25s ease;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 860px;
+            animation: fadeUp 0.35s ease;
+            position: relative;
+        }
+
+        .container::before {
+            content: "";
+            position: absolute;
+            inset: -10px;
+            background-image: radial-gradient(var(--pattern-dot) 0.9px, transparent 0.9px);
+            background-size: 14px 14px;
+            opacity: 0.24;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body:not(.dark) .container::before {
+            opacity: 0.08;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            box-shadow: var(--card-shadow);
+            padding: 30px;
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px) scale(1.003);
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--border);
+            background: var(--secondary-bg);
+            color: var(--text);
+            font-size: 0.82rem;
+            padding: 7px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            background: var(--secondary-hover);
+            transform: translateY(-1px);
+        }
+
+        .title {
+            margin: 4px 0 0;
+            font-size: clamp(1.6rem, 1.35rem + 1.25vw, 2.15rem);
+            font-weight: 800;
+            letter-spacing: 0.01em;
+        }
+
+        .subtitle {
+            margin: 10px 0 0;
+            color: var(--muted);
+            line-height: 1.5;
+            font-size: 0.99rem;
+            max-width: 62ch;
+        }
+
+        .field {
+            margin-top: 22px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 260px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 1rem;
+            line-height: 1.45;
+            color: var(--text);
+            background: rgba(248, 251, 255, 0.82);
+            resize: vertical;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        body.dark textarea {
+            background: rgba(24, 33, 51, 0.72);
+            color: var(--text);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px var(--ring), 0 0 22px rgba(59, 130, 246, 0.24);
+            background: rgba(255, 255, 255, 0.94);
+        }
+
+        .actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: 1px solid transparent;
+            border-radius: 11px;
+            padding: 11px 17px;
+            font-size: 0.96rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, background-color 0.25s ease, box-shadow 0.25s ease, filter 0.2s ease;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .primary {
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.26), 0 4px 10px rgba(14, 165, 166, 0.22);
+        }
+
+        .primary:hover {
+            transform: translateY(-1px) scale(1.02);
+            filter: brightness(1.08);
+        }
+
+        .secondary {
+            color: var(--text);
+            background: var(--secondary-bg);
+            border-color: var(--border);
+        }
+
+        .secondary:hover {
+            background: var(--secondary-hover);
+            transform: translateY(-1px);
+        }
+
+        .primary[disabled],
+        .secondary[disabled] {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .error {
+            display: none;
+            margin-top: 14px;
+            color: var(--danger);
+            font-weight: 600;
+            background: rgba(180, 35, 24, 0.08);
+            border: 1px solid rgba(180, 35, 24, 0.2);
+            border-radius: 10px;
+            padding: 8px 10px;
+        }
+
+        .result {
+            margin-top: 22px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--result-bg);
+            padding: 18px;
+            opacity: 0;
+            transform: translateY(8px);
+            max-height: 0;
+            overflow: hidden;
+            transition: opacity 0.28s ease, transform 0.28s ease, max-height 0.28s ease;
+        }
+
+        .result.show {
+            opacity: 1;
+            transform: translateY(0);
+            max-height: 720px;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-bottom: 10px;
+            border-radius: 999px;
+            padding: 7px 11px;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 0.92rem;
+        }
+
+        .badge.phishing {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            box-shadow: 0 6px 12px rgba(185, 28, 28, 0.25);
+        }
+
+        .badge.safe {
+            background: linear-gradient(135deg, #22c55e 0%, #157347 100%);
+            box-shadow: 0 6px 12px rgba(21, 115, 71, 0.22);
+        }
+
+        .summary {
+            display: grid;
+            gap: 8px;
+        }
+
+        .confidence {
+            font-size: 1.02rem;
+            font-weight: 600;
+        }
+
+        .explanation {
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .details-toggle {
+            margin-top: 10px;
+            padding: 8px 0;
+            border: none;
+            background: transparent;
+            color: #2563eb;
+            font-weight: 700;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .details-toggle:hover {
+            color: #1d4ed8;
+        }
+
+        .details {
+            display: none;
+            margin-top: 8px;
+            border-top: 1px dashed var(--border);
+            padding-top: 10px;
+            color: #264357;
+            font-size: 0.94rem;
+        }
+
+        .details.show {
+            display: block;
+        }
+
+        .detail-row {
+            margin-top: 7px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 720px) {
+            body {
+                padding: 16px 12px;
+            }
+
+            .card {
+                padding: 18px;
+                border-radius: 14px;
+            }
+
+            .topbar {
+                margin-bottom: 4px;
+            }
+
+            textarea {
+                min-height: 220px;
+            }
+
+            .actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <section class="card">
+            <div class="topbar">
+                <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false">Dark Mode</button>
+            </div>
+            <h1 class="title">AI-Powered Phishing Email Detector</h1>
+            <p class="subtitle">Paste full email content and analyze phishing risk using your trained model.</p>
+
+            <div class="field">
+                <textarea id="emailInput" placeholder="Paste full email headers/body here..."></textarea>
+            </div>
+
+            <div class="actions">
+                <button id="analyzeBtn" class="primary">Analyze Email</button>
+                <button id="demoBtn" class="secondary">Load Demo Phishing Email</button>
+            </div>
+
+            <div id="error" class="error"></div>
+
+            <div id="result" class="result">
+                <div class="summary">
+                    <span id="labelBadge" class="badge safe">✔️ Safe</span>
+                    <div class="confidence"><strong>Confidence:</strong> <span id="confidence"></span>%</div>
+                    <div id="explanation" class="explanation"></div>
+                </div>
+
+                <button id="detailsToggle" class="details-toggle" type="button" aria-expanded="false">Show Details</button>
+
+                <div id="detailsPanel" class="details" aria-hidden="true">
+                    <div class="detail-row"><strong>Phishing probability:</strong> <span id="probability"></span>%</div>
+                    <div class="detail-row"><strong>Legitimacy override:</strong> <span id="override"></span></div>
+                    <div class="detail-row"><strong>ML confidence:</strong> <span id="mlConfidence"></span></div>
+                    <div class="detail-row"><strong>Detected patterns:</strong> <span id="words"></span></div>
+                    <div class="detail-row"><strong>URL count:</strong> <span id="urlCount"></span></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const emailInput = document.getElementById("emailInput");
+        const analyzeBtn = document.getElementById("analyzeBtn");
+        const demoBtn = document.getElementById("demoBtn");
+        const result = document.getElementById("result");
+        const errorBox = document.getElementById("error");
+        const labelBadge = document.getElementById("labelBadge");
+        const confidence = document.getElementById("confidence");
+        const explanation = document.getElementById("explanation");
+        const probability = document.getElementById("probability");
+        const override = document.getElementById("override");
+        const mlConfidence = document.getElementById("mlConfidence");
+        const words = document.getElementById("words");
+        const urlCount = document.getElementById("urlCount");
+        const detailsToggle = document.getElementById("detailsToggle");
+        const detailsPanel = document.getElementById("detailsPanel");
+        const themeToggle = document.getElementById("themeToggle");
+
+        function formatPercent(value) {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return "N/A";
+            return num.toFixed(1);
+        }
+
+        function safeStatusText(isPhishing) {
+            return isPhishing ? "⚠️ Phishing" : "✔️ Safe";
+        }
+
+        function userFriendlyExplanation(isPhishing, confidencePercent, reasoningList) {
+            if (Array.isArray(reasoningList) && reasoningList.length > 0) {
+                return reasoningList.slice(0, 2).join(" ");
+            }
+
+            if (isPhishing) {
+                return `This email shows signs of phishing. We recommend not clicking any links or sharing sensitive information.`;
+            }
+
+            return `This email appears safe based on language and structure analysis, with confidence around ${formatPercent(confidencePercent)}%.`;
+        }
+
+        function setLoadingState(isLoading) {
+            if (isLoading) {
+                analyzeBtn.disabled = true;
+                demoBtn.disabled = true;
+                analyzeBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span>Analyzing...';
+                return;
+            }
+
+            analyzeBtn.disabled = false;
+            demoBtn.disabled = false;
+            analyzeBtn.textContent = "Analyze Email";
+        }
+
+        async function analyzeEmail() {
+            errorBox.style.display = "none";
+            result.classList.remove("show");
+
+            const response = await fetch("/predict", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email_text: emailInput.value })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Unknown error");
+            }
+
+            const confidenceValue = formatPercent(data.confidence);
+            const phishingProbability = formatPercent(data.phishing_probability);
+            const mlRaw = formatPercent(data.ml_raw_probability);
+
+            labelBadge.textContent = safeStatusText(Boolean(data.is_phishing));
+            labelBadge.className = `badge ${data.is_phishing ? "phishing" : "safe"}`;
+            confidence.textContent = confidenceValue;
+            explanation.textContent = userFriendlyExplanation(Boolean(data.is_phishing), data.confidence, data.reasoning);
+            probability.textContent = phishingProbability;
+            mlConfidence.textContent = mlRaw === "N/A" ? "N/A" : `${mlRaw}%`;
+
+            const suspiciousWords = data.suspicious_words_found || data.detected_phishing_patterns || [];
+            words.textContent = (Array.isArray(suspiciousWords) && suspiciousWords.length > 0)
+                ? suspiciousWords.join(", ")
+                : "None";
+            urlCount.textContent = data.url_count || 0;
+
+            if (data.legitimacy_override_applied !== undefined && data.legitimacy_override_applied > 0) {
+                override.textContent = `${formatPercent(data.legitimacy_override_applied)}% applied`;
+            } else {
+                override.textContent = "Not applied";
+            }
+
+            detailsPanel.classList.remove("show");
+            detailsPanel.setAttribute("aria-hidden", "true");
+            detailsToggle.textContent = "Show Details";
+            detailsToggle.setAttribute("aria-expanded", "false");
+
+            result.classList.add("show");
+        }
+
+        analyzeBtn.addEventListener("click", async () => {
+            try {
+                setLoadingState(true);
+                await analyzeEmail();
+            } catch (err) {
+                errorBox.textContent = err.message;
+                errorBox.style.display = "block";
+            } finally {
+                setLoadingState(false);
+            }
+        });
+
+        demoBtn.addEventListener("click", () => {
+            emailInput.value = "Subject: Urgent - Verify Your Account\n\nDear User,\n\nWe detected unusual activity on your account. Please click here immediately to verify your login credentials: http://verify-secure-account.net\n\nFailure to act within 24 hours will result in account suspension.\n\nSecurity Team";
+        });
+
+        detailsToggle.addEventListener("click", () => {
+            const isOpen = detailsPanel.classList.toggle("show");
+            detailsPanel.setAttribute("aria-hidden", String(!isOpen));
+            detailsToggle.setAttribute("aria-expanded", String(isOpen));
+            detailsToggle.textContent = isOpen ? "Hide Details" : "Show Details";
+        });
+
+        themeToggle.addEventListener("click", () => {
+            const enabled = document.body.classList.toggle("dark");
+            themeToggle.textContent = enabled ? "Light Mode" : "Dark Mode";
+            themeToggle.setAttribute("aria-pressed", String(enabled));
+        });
+    </script>
+</body>
+</html>

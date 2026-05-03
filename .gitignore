@@ -1,0 +1,9 @@
+__pycache__/
+.venv/
+*.pyc
+data/cleaned_emails.csv
+data/X_features*.npz
+data/y_labels*.npy
+models/*.pkl
+results/*.png
+*.docx
